@@ -1,0 +1,8 @@
+spring:  data:    mongodb:      host: localhost      port: 27017      authentication-database: admin      username: root      password: P@ssw0rd      database: kakao
+coupon:
+  section-size:
+    first: 5
+    second: 6
+    third: 8
+  delimiter: '-'
+  csv-path: '/csv'
