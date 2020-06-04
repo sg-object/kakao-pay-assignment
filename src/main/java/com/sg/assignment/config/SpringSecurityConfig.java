@@ -29,17 +29,23 @@ public class SpringSecurityConfig extends WebSecurityConfigurerAdapter {
 
 	@Autowired
 	private JwtAuthenticationProvider jwtProvider;
+
 	@Autowired
 	private AjaxAuthenticationProvider ajaxProvider;
+
 	@Autowired
 	private LoginSuccessHandler loginSuccessHandler;
+
 	@Autowired
 	private LoginFailureHandler loginFailureHandler;
+
 	@Autowired
 	private JwtFailHandler jwtFailHandler;
 
 	private static final String ROOT_ENTRY_POINT = "/**";
+
 	private static final String LOGIN_ENTRY_POINT = "/login";
+
 	private static final String JOIN_ENTRY_POINT = "/join";
 
 	@Override
@@ -53,7 +59,7 @@ public class SpringSecurityConfig extends WebSecurityConfigurerAdapter {
 	protected void configure(HttpSecurity http) throws Exception {
 		// TODO Auto-generated method stub
 		http.authorizeRequests().antMatchers(LOGIN_ENTRY_POINT, JOIN_ENTRY_POINT).permitAll()
-				.antMatchers(ROOT_ENTRY_POINT).hasRole("USER").anyRequest().authenticated();
+				.antMatchers(ROOT_ENTRY_POINT).authenticated();
 		http.addFilterBefore(ajaxAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
 				.addFilterBefore(jwtAuthenticationFilter(), FilterSecurityInterceptor.class).csrf().disable()
 				.sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);

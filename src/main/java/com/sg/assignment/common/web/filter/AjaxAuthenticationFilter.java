@@ -26,8 +26,8 @@ public class AjaxAuthenticationFilter extends AbstractAuthenticationProcessingFi
 		// TODO Auto-generated method stub
 		if (isJson(request)) {
 			User user = new ObjectMapper().readValue(request.getReader(), User.class);
-			UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-					user.getLoginId(), user.getPassword());
+			UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(user.getId(),
+					user.getPassword());
 			return getAuthenticationManager().authenticate(authentication);
 		} else {
 			throw new AccessDeniedException("Don't use content type for " + request.getContentType());

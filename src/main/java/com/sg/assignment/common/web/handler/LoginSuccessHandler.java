@@ -14,6 +14,7 @@ import org.springframework.security.web.authentication.SavedRequestAwareAuthenti
 import org.springframework.stereotype.Component;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sg.assignment.common.jwt.JwtInfo;
+import com.sg.assignment.common.model.Claim;
 import com.sg.assignment.common.model.SecurityUser;
 import com.sg.assignment.common.web.service.TokenService;
 
@@ -31,7 +32,7 @@ public class LoginSuccessHandler extends SavedRequestAwareAuthenticationSuccessH
 		response.setStatus(HttpStatus.OK.value());
 		response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 		Map<String, Object> values = new HashMap<>();
-		values.put(JwtInfo.TOKEN_NAME, tokenService.getJwtToken(securityUser));
+		values.put(JwtInfo.TOKEN_NAME, tokenService.createJWT(new Claim(securityUser)));
 		new ObjectMapper().writeValue(response.getWriter(), values);
 	}
 }

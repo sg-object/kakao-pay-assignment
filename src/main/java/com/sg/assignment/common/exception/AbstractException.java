@@ -12,6 +12,18 @@ public abstract class AbstractException extends RuntimeException {
 
 	public static final String JWT_ERR_CODE = "1001";
 
+	public static final String INVALID_COUPON_CODE = "2001";
+
+	public static final String USED_COUPON_CODE = "2002";
+
+	public static final String NOT_FOUND_OR_EXPIRED_COUPON_CODE = "2003";
+
+	public static final String NOT_FOUND_COUPON_CODE = "2004";
+
+	public static final String CANCELED_COUPON_CODE = "2005";
+
+	public static final String NOT_FOUND_USABLE_COUPON_CODE = "2006";
+
 	public static final String INTERNAL_SERVER_ERROR = "9999";
 
 	public abstract String getErrorCode();

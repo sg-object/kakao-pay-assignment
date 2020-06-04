@@ -26,17 +26,10 @@ public class ExceptionControllerAdvice {
 		return messageService.getExceptionResponse(AbstractException.INTERNAL_SERVER_ERROR);
 	}
 
-	@ExceptionHandler(DuplicateUserException.class)
+	@ExceptionHandler(AbstractException.class)
 	@ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-	public ExceptionResponse handleDuplicateUserException(HttpServletResponse response, DuplicateUserException e) {
-		logger.error("Duplicate User Exception has caught.", e);
-		return messageService.getExceptionResponse(e.getErrorCode());
-	}
-
-	@ExceptionHandler(VerificationException.class)
-	@ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-	public ExceptionResponse handleVerificationException(HttpServletResponse response, VerificationException e) {
-		logger.error("Verification Exception has caught.", e);
+	public ExceptionResponse handleException(HttpServletResponse response, AbstractException e) {
+		logger.error("Exception has caught.", e);
 		return messageService.getExceptionResponse(e.getErrorCode());
 	}
 }

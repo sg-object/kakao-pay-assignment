@@ -1,11 +1,20 @@
 package com.sg.assignment.coupon.model;
 
-import org.springframework.data.mongodb.core.mapping.Document;
+import java.time.LocalDateTime;
+import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 
-@Document("coupons")
 @Data
 public class Coupon {
 
-	private String coupon;
+	private String id;
+
+	@ApiModelProperty(hidden = true)
+	private LocalDateTime createDate;
+
+	@ApiModelProperty(hidden = true)
+	private LocalDateTime expireDate;
+
+	@ApiModelProperty(hidden = true)
+	private boolean issueYn;
 }

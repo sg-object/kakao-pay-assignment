@@ -1,11 +1,9 @@
 package com.sg.assignment.common.web.provider;
 
 import java.util.ArrayList;
-import java.util.List;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 import com.sg.assignment.common.jwt.ClaimField;
 import com.sg.assignment.common.jwt.JwtAuthenticationToken;
@@ -36,14 +34,14 @@ public class JwtAuthenticationProvider implements AuthenticationProvider {
 		}
 	}
 
-	@SuppressWarnings("unchecked")
+	//@SuppressWarnings("unchecked")
 	private JwtAuthenticationToken getJwtAuthenticationToken(Claims body) {
 		String id = body.get(ClaimField.id.name()).toString();
-		List<GrantedAuthority> authorities = new ArrayList<GrantedAuthority>();
+		/*List<GrantedAuthority> authorities = new ArrayList<GrantedAuthority>();
 		((ArrayList<String>) body.get(ClaimField.roles.name())).forEach(role -> {
 			authorities.add(new SimpleGrantedAuthority(role));
-		});
-		return new JwtAuthenticationToken(id, id, authorities);
+		});*/
+		return new JwtAuthenticationToken(id, id, new ArrayList<GrantedAuthority>());
 	}
 
 	@Override

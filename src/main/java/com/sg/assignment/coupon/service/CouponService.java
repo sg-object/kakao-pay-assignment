@@ -1,91 +1,69 @@
 package com.sg.assignment.coupon.service;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.UUID;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Date;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-import com.sg.assignment.coupon.model.Coupon;
-import com.sg.assignment.coupon.repository.CouponRepository;
+import com.mongodb.client.model.Filters;
+import com.sg.assignment.common.enums.CommonField;
+import com.sg.assignment.common.enums.CouponField;
+import com.sg.assignment.common.exception.InvalidCouponException;
+import com.sg.assignment.common.exception.NotFoundOrExpiredCouponException;
+import com.sg.assignment.common.exception.VerificationException;
+import com.sg.assignment.common.service.MongoService;
+import com.sg.assignment.common.util.VerificationUtils;
+import com.sg.assignment.coupon.model.CouponState;
+import com.sg.assignment.coupon.model.IssueCoupon;
 
 @Service
 public class CouponService {
 
-	@Value("${coupon.section-size.first}")
-	private byte firstSize;
-	@Value("${coupon.section-size.second}")
-	private byte secondSize;
-	@Value("${coupon.section-size.third}")
-	private byte thirdSize;
-	@Value("${coupon.delimiter}")
-	private String delimiter;
-	@Value("${coupon.csv-path}")
-	private String csvPath;
-	private final String comma = ",";
+	@Autowired
+	private MongoService mongoService;
 
 	@Autowired
-	private CouponRepository couponRepository;
+	private IssueService issueService;
 
-	public void createBulkCoupon(int count) {
-		Set<String> coupons = new HashSet<String>();
-		while (count > coupons.size()) {
-			for (int i = coupons.size(); i < count; i++) {
-				coupons.add(createCoupon());
-			}
-		}
-		coupons.forEach(c -> {
-			Coupon co = new Coupon();
-			co.setCoupon(c);
-			couponRepository.insert(co);
-		});
+	public String issueCoupon(String id) {
+		return issueService.issueCoupon(id);
 	}
 
-	public void createCouponByCSV(MultipartFile csv) {
-		try {
-			File file = getCSVFile(csv);
-			BufferedReader br = Files.newBufferedReader(Paths.get(file.getAbsolutePath()));
-			String line = "";
-			while ((line = br.readLine()) != null) {
-				String[] data = line.split(comma);
-				// [0] : coupon
-				System.out.println(data[0].trim());
-			}
-			file.delete();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+	public List<IssueCoupon> getMyCouponList(String id, int page, int size) {
+		if (page < 1 || size < 1) {
+			throw new VerificationException();
 		}
+		return issueService.getMyCouponList(id, page, size);
 	}
 
-	private File getCSVFile(MultipartFile csv) throws IOException {
-		File dir = new File(csvPath);
-		if (!dir.exists() || !dir.isDirectory()) {
-			dir.mkdir();
+	public CouponState getCouponState(String id, String coupon, Date issueDate) {
+		checkCoupon(coupon);
+		String collection = mongoService.createCollectionNameByIssueDate(
+				LocalDateTime.ofInstant(issueDate.toInstant(), ZoneId.systemDefault()));
+		CouponState couponState = mongoService.getCollection(collection)
+				.find(Filters.and(Filters.eq(CommonField._ID.getField(), coupon),
+						Filters.eq(CouponField.USER_ID.getField(), id)), CouponState.class)
+				.limit(1).first();
+		if (couponState == null) {
+			throw new NotFoundOrExpiredCouponException();
 		}
-		File file = new File(dir, csv.getOriginalFilename());
-		file.createNewFile();
-		FileOutputStream fos = new FileOutputStream(file);
-		fos.write(csv.getBytes());
-		fos.close();
-		return file;
+		return couponState;
 	}
 
-	private String createCoupon() {
-		String uuid = UUID.randomUUID().toString().toUpperCase().replaceAll(delimiter, "");
-		StringBuilder coupon = new StringBuilder();
-		coupon.append(uuid.substring(0, firstSize));
-		coupon.append(delimiter);
-		coupon.append(uuid.substring(firstSize, firstSize + secondSize));
-		coupon.append(delimiter);
-		coupon.append(uuid.substring(firstSize + secondSize, firstSize + secondSize + thirdSize));
-		return coupon.toString();
+	public void useCoupon(String id, IssueCoupon coupon) {
+		checkCoupon(coupon.getCoupon());
+		issueService.useCoupon(id, coupon.getCoupon());
+	}
+
+	public void cancelCoupon(String id, IssueCoupon coupon) {
+		checkCoupon(coupon.getCoupon());
+		issueService.cancelCoupon(id, coupon.getCoupon());
+	}
+
+	private void checkCoupon(String coupon) {
+		if (VerificationUtils.isNullOrBlank(coupon)) {
+			throw new InvalidCouponException();
+		}
 	}
 }

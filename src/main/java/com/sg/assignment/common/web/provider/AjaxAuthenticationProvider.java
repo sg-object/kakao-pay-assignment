@@ -16,6 +16,7 @@ public class AjaxAuthenticationProvider extends AbstractUserDetailsAuthenticatio
 
 	@Autowired
 	private PasswordEncoder passwordEncoder;
+
 	@Autowired
 	private AjaxUserDetailsService ajaxUserDetailsService;
 

@@ -1,13 +1,16 @@
 package com.sg.assignment.user.model;
 
-import org.springframework.data.mongodb.core.mapping.Document;
+import io.swagger.annotations.ApiModel;
+import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 
-@Document("users")
+@ApiModel(description = "사용자 정보")
 @Data
 public class User {
 
-	private String loginId;
+	@ApiModelProperty(value = "로그인 아이디")
+	private String id;
 
+	@ApiModelProperty(value = "로그인 비밀번호")
 	private String password;
 }

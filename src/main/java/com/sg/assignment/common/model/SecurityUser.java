@@ -17,6 +17,6 @@ public class SecurityUser extends User {
 
 	public SecurityUser(com.sg.assignment.user.model.User user, Collection<? extends GrantedAuthority> authorities) {
 		// TODO Auto-generated constructor stub
-		super(user.getLoginId(), user.getPassword(), authorities);
+		super(user.getId(), user.getPassword(), authorities);
 	}
 }
