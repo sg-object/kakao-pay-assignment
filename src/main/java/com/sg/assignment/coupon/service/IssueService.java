@@ -161,7 +161,8 @@ public class IssueService {
 	
 	private Document createStateDocument(Coupon coupon, String userId, LocalDateTime issueDate) {
 		Document doc = new Document();
-		doc.append(CommonField._ID.getField(), coupon.getId());
+		//doc.append(CommonField._ID.getField(), coupon.getId());
+		doc.append(CouponField.COUPON.getField(), coupon.getId());
 		doc.append(CouponField.USER_ID.getField(), userId);
 		doc.append(CouponField.CREATE_DATE.getField(), coupon.getCreateDate());
 		doc.append(CouponField.ISSUE_DATE.getField(), issueDate);

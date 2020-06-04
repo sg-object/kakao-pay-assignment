@@ -31,15 +31,16 @@ public class ExpireNoticeTask {
 	@SuppressWarnings("static-access")
 	@Scheduled(cron = "0 50 */1 * * *")
 	private void task() {
+		logger.info("=====================================================================================================");
 		logger.info("Start Expire Notice Task !!!!!!!");
-		LocalDateTime startDate = LocalDateTime.now().minusDays(-2);
-		startDate = startDate.of(startDate.getYear(), startDate.getMonth(), startDate.getDayOfMonth(), startDate.getHour(), 0, 0, 0);
-		MongoCollection<Document> expireCollection = mongoService.getCollection(mongoService.createCollectionNameByExpireDate(startDate));
+		LocalDateTime noticeDate = LocalDateTime.now().minusDays(-2);
+		noticeDate = noticeDate.of(noticeDate.getYear(), noticeDate.getMonth(), noticeDate.getDayOfMonth(), noticeDate.getHour(), 0, 0, 0);
+		MongoCollection<Document> expireCollection = mongoService.getCollection(mongoService.createCollectionNameByExpireDate(noticeDate));
 
 		Bson match = Aggregates.match(
 				Filters.and(
-						Filters.gte(CouponField.ISSUE_DATE.getField(), startDate), 
-						Filters.lte(CouponField.ISSUE_DATE.getField(), startDate.plusHours(1)))
+						Filters.gte(CouponField.ISSUE_DATE.getField(), noticeDate), 
+						Filters.lte(CouponField.ISSUE_DATE.getField(), noticeDate.plusHours(1)))
 				);
 
 		String id = CommonField._ID.getField();
@@ -77,5 +78,6 @@ public class ExpireNoticeTask {
 		data.forEach(c -> {
 			logger.info("[{}] 님이 보유하신 쿠폰 [{}] 이(가) 3일 후에 만료 됩니다.", c.get(id), c.get(coupon));
 		});
+		logger.info("=====================================================================================================");
 	}
 }

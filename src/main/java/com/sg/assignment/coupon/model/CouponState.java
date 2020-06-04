@@ -9,8 +9,8 @@ import lombok.Data;
 @Data
 public class CouponState {
 
-	@ApiModelProperty(value = "쿠폰(MongoDB ID)")
-	private String id;
+	@ApiModelProperty(value = "쿠폰")
+	private String coupon;
 
 	@ApiModelProperty(value = "사용자 아이디")
 	private String userId;

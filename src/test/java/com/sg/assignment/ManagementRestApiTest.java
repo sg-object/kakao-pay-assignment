@@ -51,7 +51,6 @@ public class ManagementRestApiTest {
 		logger.info("====================================================================================================================");
 		logger.info("Bulk CSV Test Start!!!!!!!");
 		try {
-			// 1000000개 발급
 			File file = new File("src/test/resources/coupon.csv");
 			FileInputStream fi = new FileInputStream(file);
 			MockMultipartFile mock = new MockMultipartFile("csv", file.getName(), "multipart/form-data",fi);

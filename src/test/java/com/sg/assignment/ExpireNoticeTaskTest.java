@@ -21,7 +21,7 @@ import com.sg.assignment.common.enums.MongoCollections;
 import com.sg.assignment.common.service.MongoService;
 
 @SpringBootTest
-public class ScheduleTaskTest {
+public class ExpireNoticeTaskTest {
 
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 	
@@ -29,7 +29,7 @@ public class ScheduleTaskTest {
 	private MongoService mongoService;
 	
 	@Test
-	public void expireNotice() {
+	public void task() {
 		LocalDateTime date = LocalDateTime.now();
 		String test = mongoService.createCollectionNameByExpireDate(date);
 		MongoCollection<Document> expireCollection = mongoService.getCollection(test);

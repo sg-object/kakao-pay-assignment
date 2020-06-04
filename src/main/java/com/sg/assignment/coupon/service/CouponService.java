@@ -42,7 +42,7 @@ public class CouponService {
 		String collection = mongoService.createCollectionNameByIssueDate(
 				LocalDateTime.ofInstant(issueDate.toInstant(), ZoneId.systemDefault()));
 		CouponState couponState = mongoService.getCollection(collection)
-				.find(Filters.and(Filters.eq(CommonField._ID.getField(), coupon),
+				.find(Filters.and(Filters.eq(CouponField.COUPON.getField(), coupon),
 						Filters.eq(CouponField.USER_ID.getField(), id)), CouponState.class)
 				.limit(1).first();
 		if (couponState == null) {
