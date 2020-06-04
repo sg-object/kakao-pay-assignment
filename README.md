@@ -1,5 +1,9 @@
 # kakao-pay-assignment
 
+## 참고 사항
+* Source Code 확인은 mater Branch로 부탁드립니다.
+* dev Branch에서 계속 개발 진행 예정 입니다.
+
 ## 주요 기능
 * MongoDB를 활용한 쿠폰 관리
 * JWT를 이용한 인증 처리
