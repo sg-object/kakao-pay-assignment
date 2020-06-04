@@ -1,0 +1,8 @@
+spring:  servlet:    multipart:      max-file-size: 100MB      max-request-size: 100MBmongodb:  host: localhost  port: 27017  userName: root  password: P@ssw0rd  database:    auth: admin    kakao: kakao  
+coupon:
+  section-size:
+    first: 5
+    second: 6
+    third: 8
+  delimiter: '-'
+  csv-path: '/csv'  default-expire-day: 7
