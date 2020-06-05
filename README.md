@@ -26,7 +26,7 @@ MongoDB와 Elasticsearch 같은 NoSQL은 Join 기능을 제공하지 않기 때�
 16MB로 제한한다. 그래서 Embedded Document에 저장되는 정보를 최소화하고 그외 추가 정보는 다른 collection에 저장하고, 추가 정보가 필요한 경우 
 Embeddee Document에 저장 되어 있는 다른 collection 정보로 추가 정보를 조회하는 방법을 사용했다.
 이 프로젝트에서는 issues collection의 collection, coupon field를 이용해 coupons_yyyy_MM_dd collection에서 추가 정보를 가져 올 수있다.
-collection 분리를 coupon의 앞자리의 Hash값으로 대역을 나누어서 처리하는 방법도 생각했지만, 특정 값으로 나누어 버리면 자칫 잘못하면 정보가 몇몇 특정 collectiondmfh 
+collection 분리를 coupon의 앞자리의 Hash값으로 대역을 나누어서 처리하는 방법도 생각했지만, 특정 값으로 나누어 버리면 자칫 잘못하면 정보가 몇몇 특정 collection에 
 쏠리는 경우가 발생 할수도 있다고 판단해 관리하기가 비교적 쉬운 날짜 기준으로 collection을 분리했다.
 (coupons_yyyy_MM_dd는 쿠폰 발급 날짜로 생성한 collection)  
 
@@ -81,4 +81,5 @@ Project 폴더에서 /src/main/resources/docker/docker-compose.yml 경로의 doc
 * Test용 csv 파일 : /src/test/resources/coupon.csv  
 
 ![K-20200605-61723-2](https://user-images.githubusercontent.com/49360550/83811346-99c0c580-a6f4-11ea-9af8-2a2a72c44b21.jpg)
+
 
