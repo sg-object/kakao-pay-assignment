@@ -45,7 +45,17 @@ Replica Set은 메인 저장소 역할을 하는 Master와 백업 저장소 역�
 2. **Scheduler Clustering**  
 현재 프로젝트에서는 2개의 Spring Scheduler가 동작한다. 하지만 실제 프로젝트의 경우 단일 서버로만 운영하는 곳보다는 서버 이중화를 통해 안정적으로 운영을 
 하기 때문에 Scheduler도 Clustering이 되어야 한다. 대표적으로 DB를 활용한 Quartz Schedule Cluster 구성이 있고, Spring에서도 Spring Scheduler Lock을 
-이용해 구성할수 있다.
+이용해 구성할수 있다.  
+
+3. **DBRef**  
+collection schema를 재설계 할때 DBRef 적용도 검토 해보면 좋을것 같다. 현재는 Embedded Document의 field 값을 가지고 다른 collection을 
+조회 하는데 DBRef를 이용하면 새로운 Document를 insert 할때 참조할 collection name과 id값을 입력해 저장하고, collection을 조회할 때 
+알아서 DBRef로 설정한 데이터가 같이 조회가 된다. 하지만 몇몇 블로그에서 DBRef를 사용하면 project(출력하고 싶은 field 설정) 같은 기능을 사용할수 없다고 하는데, 조금 더 Research를 진행하고 만약 DBRef를 적용해도 문제가 없다고 판단되면 사용자의 쿠폰 목록을 저장하고 있는 collection(issues)에 
+적용해보는 것도 나쁘지 않을 것 같다.  
+
+4. **index 설정 기능 및 schema 재설계**  
+현재 프로젝트 source에는 collection의 index 설정 기능이 없다. 개발을 진행할때 Terminal로 MongoDB에 접속해 직접 명령어로 설정했다. 
+MongoDB Replica Set을 구성 하면서 schema 재설계와 같이 진행 할 예정이다.
 
 ## 사전 준비 (MongoDB 설치)
 1. **Docker 명령어**  
