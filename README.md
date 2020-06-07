@@ -65,16 +65,16 @@ docker run --name mongo -p 27017:27017 -e MONGO_INITDB_ROOT_USERNAME=root -e MON
 Project 폴더에서 /src/main/resources/docker/docker-compose.yml 경로의 docker-compose.yml 파일 사용.  
 명령어 : docker-compose up -d  
 
-3. **설정**  
-* /src/main/resources/application.yml MongoDB 설정 수정  
-* mongodb:
-  + host: localhost
-  + port: 27017
-  + userName: root
-  + password: P@ssw0rd
-  + database:
-      >auth: admin  
-      >kakao: kakao  
+3. **설정**
+    * /src/main/resources/application.yml MongoDB 설정 수정  
+    * mongodb:
+      + host: localhost
+      + port: 27017
+      + userName: root
+      + password: P@ssw0rd
+      + database:
+        - auth: admin  
+        - kakao: kakao  
 
 ## MongoDB Collection Diagram
 ![K-20200605-52236-8](https://user-images.githubusercontent.com/49360550/83811341-988f9880-a6f4-11ea-9be7-61200ede3c9f.jpg)
