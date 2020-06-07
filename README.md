@@ -57,13 +57,24 @@ collection schema를 재설계 할때 DBRef 적용도 검토 해보면 좋을것
 현재 프로젝트 source에는 collection의 index 설정 기능이 없다. 개발을 진행할때 Terminal로 MongoDB에 접속해 직접 명령어로 설정했다. 
 MongoDB Replica Set을 구성 하면서 schema 재설계와 같이 진행 할 예정이다.
 
-## 사전 준비 (MongoDB 설치)
+## 사전 준비 (MongoDB)
 1. **Docker 명령어**  
 docker run --name mongo -p 27017:27017 -e MONGO_INITDB_ROOT_USERNAME=root -e MONGO_INITDB_ROOT_PASSWORD=P@ssw0rd -d mongo:4.2.7
 
 2. **Docker Compose**  
 Project 폴더에서 /src/main/resources/docker/docker-compose.yml 경로의 docker-compose.yml 파일 사용.  
-명령어 : docker-compose up -d
+명령어 : docker-compose up -d  
+
+3. **설정**
+    * /src/main/resources/application.yml MongoDB 설정 수정  
+    * mongodb:
+      + host: localhost
+      + port: 27017
+      + userName: root
+      + password: P@ssw0rd
+      + database:
+        - auth: admin  
+        - kakao: kakao  
 
 ## MongoDB Collection Diagram
 ![K-20200605-52236-8](https://user-images.githubusercontent.com/49360550/83811341-988f9880-a6f4-11ea-9be7-61200ede3c9f.jpg)
