@@ -1,4 +1,4 @@
-spring:  servlet:    multipart:      max-file-size: 100MB      max-request-size: 100MBmongodb:  host: localhost  port: 27017  userName: root  password: P@ssw0rd  database:    auth: admin    kakao: kakao  
+spring:  data:    mongodb:      cluster: localhost:27017, localhost:27018, localhost:27019      authentication-database: admin      username: root      password: P@ssw0rd      database: kakao  servlet:    multipart:      max-file-size: 100MB      max-request-size: 100MB  
 coupon:
   section-size:
     first: 5

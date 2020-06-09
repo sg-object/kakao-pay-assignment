@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -28,6 +27,7 @@ import com.sg.assignment.common.enums.CouponField;
 import com.sg.assignment.common.enums.MongoCollections;
 import com.sg.assignment.common.exception.VerificationException;
 import com.sg.assignment.common.service.MongoService;
+import com.sg.assignment.common.util.LocalDateTimeUtils;
 import com.sg.assignment.common.util.VerificationUtils;
 import com.sg.assignment.coupon.model.BulkResult;
 import com.sg.assignment.coupon.model.ExpiredCoupon;
@@ -56,10 +56,10 @@ public class ManagementCouponService {
 	private MongoService mongoService;
 
 	public BulkResult createBulkCoupon(int count, Date expireDate) {
-		LocalDateTime createDate = LocalDateTime.now();
+		LocalDateTime createDate = LocalDateTimeUtils.now();
 		LocalDateTime initDate = null;
 		if (expireDate != null) {
-			initDate = LocalDateTime.ofInstant(expireDate.toInstant(), ZoneId.systemDefault());
+			initDate = LocalDateTimeUtils.ofInstant(expireDate.toInstant());
 			if (createDate.isAfter(initDate)) {
 				throw new VerificationException();
 			}

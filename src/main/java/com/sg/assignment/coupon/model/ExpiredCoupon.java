@@ -4,7 +4,9 @@ import java.time.LocalDateTime;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
+@NoArgsConstructor
 @ApiModel(description = "만료 쿠폰 정보")
 @Data
 public class ExpiredCoupon {
@@ -23,4 +25,12 @@ public class ExpiredCoupon {
 
 	@ApiModelProperty(value = "만료 날짜")
 	private LocalDateTime expireDate;
+
+	public ExpiredCoupon(IssueCoupon issueCoupon) {
+		this.coupon = issueCoupon.getCoupon();
+		this.userId = issueCoupon.getUserId();
+		this.collection = issueCoupon.getCollection();
+		this.issueDate = issueCoupon.getIssueDate();
+		this.expireDate = issueCoupon.getExpireDate();
+	}
 }

@@ -7,7 +7,6 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.mongodb.client.model.Filters;
-import com.sg.assignment.common.enums.CommonField;
 import com.sg.assignment.common.enums.CouponField;
 import com.sg.assignment.common.exception.InvalidCouponException;
 import com.sg.assignment.common.exception.NotFoundOrExpiredCouponException;
@@ -27,7 +26,9 @@ public class CouponService {
 	private IssueService issueService;
 
 	public String issueCoupon(String id) {
-		return issueService.issueCoupon(id);
+		IssueCoupon issueCoupon = issueService.issueCoupon(id);
+		issueService.issueCoupon(issueCoupon);
+		return issueCoupon.getCoupon();
 	}
 
 	public List<IssueCoupon> getMyCouponList(String id, int page, int size) {
