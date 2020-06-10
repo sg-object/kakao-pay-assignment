@@ -4,11 +4,18 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.UncategorizedMongoDbException;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
-import com.mongodb.client.model.Filters;
+import com.mongodb.MongoCommandException;
+import com.mongodb.MongoException;
 import com.sg.assignment.common.enums.CouponField;
 import com.sg.assignment.common.exception.InvalidCouponException;
+import com.sg.assignment.common.exception.IssueCouponException;
 import com.sg.assignment.common.exception.NotFoundOrExpiredCouponException;
 import com.sg.assignment.common.exception.VerificationException;
 import com.sg.assignment.common.service.MongoService;
@@ -25,9 +32,21 @@ public class CouponService {
 	@Autowired
 	private IssueService issueService;
 
+	@Autowired
+	private MongoTemplate mongoTemplate;
+
 	public String issueCoupon(String id) {
 		IssueCoupon issueCoupon = issueService.issueCoupon(id);
-		issueService.issueCoupon(issueCoupon);
+		try {
+			issueService.issueCoupon(issueCoupon);
+		}catch (UncategorizedMongoDbException e) {
+			if(e.getRootCause() instanceof MongoCommandException) {
+				if(((MongoCommandException) e.getRootCause()).hasErrorLabel(MongoException.TRANSIENT_TRANSACTION_ERROR_LABEL)) {
+					throw new IssueCouponException();
+				};
+			}
+			throw new RuntimeException();
+		}
 		return issueCoupon.getCoupon();
 	}
 
@@ -40,26 +59,28 @@ public class CouponService {
 
 	public CouponState getCouponState(String id, String coupon, Date issueDate) {
 		checkCoupon(coupon);
-		String collection = mongoService.createCollectionNameByIssueDate(
+		String collectionName = mongoService.createCollectionNameByIssueDate(
 				LocalDateTime.ofInstant(issueDate.toInstant(), ZoneId.systemDefault()));
-		CouponState couponState = mongoService.getCollection(collection)
-				.find(Filters.and(Filters.eq(CouponField.COUPON.getField(), coupon),
-						Filters.eq(CouponField.USER_ID.getField(), id)), CouponState.class)
-				.limit(1).first();
-		if (couponState == null) {
-			throw new NotFoundOrExpiredCouponException();
-		}
-		return couponState;
+		Query query = new Query();
+		query.addCriteria(Criteria.where(CouponField.COUPON.getField()).is(coupon));
+		query.addCriteria(Criteria.where(CouponField.USER_ID.getField()).is(id));
+		mongoTemplate.findOne(query, CouponState.class, collectionName);
+		return Optional.ofNullable(mongoTemplate.findOne(query, CouponState.class, collectionName))
+				.orElseThrow(() -> new NotFoundOrExpiredCouponException());
 	}
 
 	public void useCoupon(String id, IssueCoupon coupon) {
 		checkCoupon(coupon.getCoupon());
-		issueService.useCoupon(id, coupon.getCoupon());
+		if (!issueService.useCoupon(id, coupon.getCoupon())) {
+			throw new NotFoundOrExpiredCouponException();
+		}
 	}
 
 	public void cancelCoupon(String id, IssueCoupon coupon) {
 		checkCoupon(coupon.getCoupon());
-		issueService.cancelCoupon(id, coupon.getCoupon());
+		if (!issueService.cancelCoupon(id, coupon.getCoupon())) {
+			throw new NotFoundOrExpiredCouponException();
+		}
 	}
 
 	private void checkCoupon(String coupon) {
