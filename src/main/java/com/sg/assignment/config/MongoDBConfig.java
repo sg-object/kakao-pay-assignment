@@ -17,7 +17,7 @@ import com.mongodb.client.MongoClients;
 public class MongoDBConfig extends AbstractMongoClientConfiguration {
 
 	@Value("${spring.data.mongodb.cluster}")
-	private String[] cluster;
+	private List<String> cluster;
 
 	@Value("${spring.data.mongodb.database}")
 	private String database;
@@ -43,10 +43,10 @@ public class MongoDBConfig extends AbstractMongoClientConfiguration {
 	@Bean
 	public MongoClientSettings mongoClientSettings() {
 		List<ServerAddress> hosts = new ArrayList<>();
-		for (int i = 0; i < cluster.length; i++) {
-			String[] info = cluster[i].split(":");
+		cluster.forEach(url -> {
+			String[] info = url.split(":");
 			hosts.add(new ServerAddress(info[0], Integer.parseInt(info[1])));
-		}
+		});
 		return MongoClientSettings.builder().applyToClusterSettings(builder -> builder.hosts(hosts)).build();
 	}
 }

@@ -36,15 +36,21 @@ public class CouponService {
 	private MongoTemplate mongoTemplate;
 
 	public String issueCoupon(String id) {
+		// coupons collection에서 유효한 쿠폰을 찾아 발급 처리
 		IssueCoupon issueCoupon = issueService.issueCoupon(id);
 		try {
 			issueService.issueCoupon(issueCoupon);
 		}catch (UncategorizedMongoDbException e) {
+			// 발급 처리된 쿠폰 roll back
+			issueService.rollbackCoupon(issueCoupon.getCoupon());
 			if(e.getRootCause() instanceof MongoCommandException) {
 				if(((MongoCommandException) e.getRootCause()).hasErrorLabel(MongoException.TRANSIENT_TRANSACTION_ERROR_LABEL)) {
 					throw new IssueCouponException();
 				};
 			}
+			throw new RuntimeException();
+		}catch (Exception e) {
+			issueService.rollbackCoupon(issueCoupon.getCoupon());
 			throw new RuntimeException();
 		}
 		return issueCoupon.getCoupon();

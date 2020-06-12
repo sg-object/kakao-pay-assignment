@@ -19,6 +19,7 @@ import com.sg.assignment.common.enums.CouponField;
 import com.sg.assignment.common.enums.IssueField;
 import com.sg.assignment.common.enums.MongoCollections;
 import com.sg.assignment.common.service.MongoService;
+import com.sg.assignment.coupon.service.ManagementCouponService;
 
 @SpringBootTest
 public class ExpireNoticeTaskTest {
@@ -28,16 +29,32 @@ public class ExpireNoticeTaskTest {
 	@Autowired
 	private MongoService mongoService;
 	
+	@Autowired
+	private ManagementCouponService managementCouponService;
+	
+	@Test
+	public void getExpiredCouponAtDate() {
+		logger.info("=====================================================================================================");
+		logger.info("=====================================================================================================");
+		managementCouponService.getExpiredCouponAtDate(1, 10, LocalDateTime.now().plusDays(7)).forEach(coupon -> {
+			System.out.println(coupon);
+		});
+		logger.info("=====================================================================================================");
+		logger.info("=====================================================================================================");
+	}
+	
 	@Test
 	public void task() {
-		LocalDateTime date = LocalDateTime.now();
+		logger.info("=====================================================================================================");
+		logger.info("=====================================================================================================");
+		LocalDateTime date = LocalDateTime.now().plusDays(7);
 		String test = mongoService.createCollectionNameByExpireDate(date);
 		MongoCollection<Document> expireCollection = mongoService.getCollection(test);
 
 		Bson match = Aggregates.match(
 				Filters.and(
-						Filters.gte(CouponField.ISSUE_DATE.getField(), LocalDateTime.now().minusDays(1)), 
-						Filters.lte(CouponField.ISSUE_DATE.getField(), LocalDateTime.now().plusDays(1)))
+						Filters.gte(CouponField.EXPIRE_DATE.getField(), date.minusDays(1)), 
+						Filters.lte(CouponField.EXPIRE_DATE.getField(), date.plusDays(1)))
 				);
 
 		String id = CommonField._ID.getField();
@@ -75,5 +92,7 @@ public class ExpireNoticeTaskTest {
 		data.forEach(c -> {
 			logger.info("[{}] 님이 보유하신 쿠폰 [{}] 이(가) 3일 후에 만료 됩니다.", c.get(id), c.get(coupon));
 		});
+		logger.info("=====================================================================================================");
+		logger.info("=====================================================================================================");
 	}
 }
