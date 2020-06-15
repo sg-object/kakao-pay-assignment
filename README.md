@@ -58,24 +58,31 @@ collection schema를 재설계 할때 DBRef 적용도 검토 해보면 좋을것
 MongoDB Replica Set을 구성 하면서 schema 재설계와 같이 진행 할 예정이다.
 
 ## 사전 준비 (MongoDB)
-1. **Docker 명령어**  
-docker run --name mongo -p 27017:27017 -e MONGO_INITDB_ROOT_USERNAME=root -e MONGO_INITDB_ROOT_PASSWORD=P@ssw0rd -d mongo:4.2.7
-
-2. **Docker Compose**  
+1. **Docker Compose**  
 Project 폴더에서 /src/main/resources/docker/docker-compose.yml 경로의 docker-compose.yml 파일 사용.  
+MongoDB Replica Set (3대 - mongo_01, mongo_02, mongo_03)  
 명령어 : docker-compose up -d  
 
-3. **설정**
-    * /src/main/resources/application.yml MongoDB 설정 수정  
-    * mongodb:
-      + host: localhost
-      + port: 27017
-      + userName: root
-      + password: P@ssw0rd
-      + database:
-        - auth: admin  
-        - kakao: kakao  
+2. **MongoDB 설정**  
+   * MongoDB 접속  
+   docker exec -it mongo_01 mongo
+   * Replica Set 설정  
+   config = {"_id": "mongo-repl", "members":[{"_id" :0, "host": "host_ip:27017"},{"_id" :1, "host": "host_ip:27018"},{"_id" :2, "host": "host_ip:27019"}]}  
+   rs.initiate(config)  
+   **※ application에서 config에 설정된 정보를 사용. host_ip를 docker 컨테이너 이름으로 설정하면 application에서 찾을 수 없기 때문에 host의 ip로 설정**  
+   * 확인  
+   rs.status()
 
+3. **Application 설정**
+    * /src/main/resources/application.yml MongoDB 설정 수정  
+    * MongoDB 설정에서 입력한 host_ip로 설정  
+    ```
+    spring:
+      data:
+        mongodb:
+          cluster: host_ip:27017, host_ip:27018, host_ip:27019
+          database: kakao
+     ```
 ## MongoDB Collection Diagram
 ![K-20200605-52236-8](https://user-images.githubusercontent.com/49360550/83811341-988f9880-a6f4-11ea-9be7-61200ede3c9f.jpg)
 
