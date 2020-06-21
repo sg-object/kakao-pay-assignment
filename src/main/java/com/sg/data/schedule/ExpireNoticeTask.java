@@ -1,14 +1,14 @@
-package com.sg.assignment;
+package com.sg.data.schedule;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import org.bson.Document;
 import org.bson.conversions.Bson;
-import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
 import com.mongodb.client.AggregateIterable;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Aggregates;
@@ -19,42 +19,28 @@ import com.sg.data.common.enums.CouponField;
 import com.sg.data.common.enums.IssueField;
 import com.sg.data.common.enums.MongoCollections;
 import com.sg.data.common.service.MongoService;
-import com.sg.data.coupon.service.ManagementCouponService;
 
-@SpringBootTest
-public class ExpireNoticeTaskTest {
+@Component
+public class ExpireNoticeTask {
 
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 	
 	@Autowired
 	private MongoService mongoService;
 	
-	@Autowired
-	private ManagementCouponService managementCouponService;
-	
-	@Test
-	public void getExpiredCouponAtDate() {
+	@SuppressWarnings("static-access")
+	@Scheduled(cron = "0 50 */1 * * *")
+	private void task() {
 		logger.info("=====================================================================================================");
-		logger.info("=====================================================================================================");
-		managementCouponService.getExpiredCouponAtDate(1, 10, LocalDateTime.now().plusDays(7)).forEach(coupon -> {
-			System.out.println(coupon);
-		});
-		logger.info("=====================================================================================================");
-		logger.info("=====================================================================================================");
-	}
-	
-	@Test
-	public void task() {
-		logger.info("=====================================================================================================");
-		logger.info("=====================================================================================================");
-		LocalDateTime date = LocalDateTime.now().plusDays(7);
-		String test = mongoService.createCollectionNameByExpireDate(date);
-		MongoCollection<Document> expireCollection = mongoService.getCollection(test);
+		logger.info("Start Expire Notice Task !!!!!!!");
+		LocalDateTime noticeDate = LocalDateTime.now().plusDays(2);
+		noticeDate = noticeDate.of(noticeDate.getYear(), noticeDate.getMonth(), noticeDate.getDayOfMonth(), noticeDate.getHour(), 0, 0, 0);
+		MongoCollection<Document> expireCollection = mongoService.getCollection(mongoService.createCollectionNameByExpireDate(noticeDate));
 
 		Bson match = Aggregates.match(
 				Filters.and(
-						Filters.gte(CouponField.EXPIRE_DATE.getField(), date.minusDays(1)), 
-						Filters.lte(CouponField.EXPIRE_DATE.getField(), date.plusDays(1)))
+						Filters.gte(CouponField.EXPIRE_DATE.getField(), noticeDate), 
+						Filters.lte(CouponField.EXPIRE_DATE.getField(), noticeDate.plusHours(1)))
 				);
 
 		String id = CommonField._ID.getField();
@@ -92,7 +78,6 @@ public class ExpireNoticeTaskTest {
 		data.forEach(c -> {
 			logger.info("[{}] 님이 보유하신 쿠폰 [{}] 이(가) 3일 후에 만료 됩니다.", c.get(id), c.get(coupon));
 		});
-		logger.info("=====================================================================================================");
 		logger.info("=====================================================================================================");
 	}
 }

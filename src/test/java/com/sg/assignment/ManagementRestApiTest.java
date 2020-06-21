@@ -17,7 +17,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
-import com.sg.assignment.common.jwt.JwtInfo;
+
+import com.sg.data.common.jwt.JwtInfo;
 
 @AutoConfigureMockMvc
 @SpringBootTest
