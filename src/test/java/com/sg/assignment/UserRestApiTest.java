@@ -12,8 +12,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sg.assignment.common.jwt.JwtInfo;
-import com.sg.assignment.user.model.User;
+import com.sg.data.common.jwt.JwtInfo;
+import com.sg.data.user.model.User;
 
 @AutoConfigureMockMvc
 @SpringBootTest

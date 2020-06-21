@@ -1,8 +1,4 @@
-# kakao-pay-assignment
-
-## 참고 사항
-* Source Code 확인은 mater Branch로 부탁드립니다.
-* dev Branch에서 계속 개발 진행 예정 입니다.
+# spring-data-mongodb
 
 ## 주요 기능
 * MongoDB를 활용한 쿠폰 관리
@@ -81,7 +77,7 @@ MongoDB Replica Set (3대 - mongo_01, mongo_02, mongo_03)
       data:
         mongodb:
           cluster: host_ip:27017, host_ip:27018, host_ip:27019
-          database: kakao
+          database: sg
      ```
 ## MongoDB Collection Diagram
 ![K-20200605-52236-8](https://user-images.githubusercontent.com/49360550/83811341-988f9880-a6f4-11ea-9be7-61200ede3c9f.jpg)
