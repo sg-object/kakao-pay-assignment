@@ -1,6 +1,8 @@
 package com.sg.assignment.coupon.model;
 
 import java.time.LocalDateTime;
+import org.springframework.data.annotation.Transient;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
@@ -29,8 +31,21 @@ public class IssueCoupon {
 	@ApiModelProperty(hidden = true)
 	private boolean useYn;
 
+	@JsonIgnore
+	@Transient
+	private LocalDateTime createDate;
+
+	@JsonIgnore
+	@Transient
+	private String userId;
+
+	@JsonIgnore
+	@Transient
+	private String expireCollection;
+
 	public IssueCoupon(Coupon coupon) {
 		this.coupon = coupon.getId();
 		this.expireDate = coupon.getExpireDate();
+		this.createDate = coupon.getCreateDate();
 	}
 }

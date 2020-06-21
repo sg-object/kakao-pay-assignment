@@ -33,14 +33,14 @@ public class ExpireNoticeTask {
 	private void task() {
 		logger.info("=====================================================================================================");
 		logger.info("Start Expire Notice Task !!!!!!!");
-		LocalDateTime noticeDate = LocalDateTime.now().minusDays(-2);
+		LocalDateTime noticeDate = LocalDateTime.now().plusDays(2);
 		noticeDate = noticeDate.of(noticeDate.getYear(), noticeDate.getMonth(), noticeDate.getDayOfMonth(), noticeDate.getHour(), 0, 0, 0);
 		MongoCollection<Document> expireCollection = mongoService.getCollection(mongoService.createCollectionNameByExpireDate(noticeDate));
 
 		Bson match = Aggregates.match(
 				Filters.and(
-						Filters.gte(CouponField.ISSUE_DATE.getField(), noticeDate), 
-						Filters.lte(CouponField.ISSUE_DATE.getField(), noticeDate.plusHours(1)))
+						Filters.gte(CouponField.EXPIRE_DATE.getField(), noticeDate), 
+						Filters.lte(CouponField.EXPIRE_DATE.getField(), noticeDate.plusHours(1)))
 				);
 
 		String id = CommonField._ID.getField();

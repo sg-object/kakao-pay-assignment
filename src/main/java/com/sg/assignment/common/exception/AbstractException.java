@@ -23,6 +23,8 @@ public abstract class AbstractException extends RuntimeException {
 	public static final String CANCELED_COUPON_CODE = "2005";
 
 	public static final String NOT_FOUND_USABLE_COUPON_CODE = "2006";
+	
+	public static final String ISSUE_COUPON_ERR_CODE = "2007";
 
 	public static final String INTERNAL_SERVER_ERROR = "9999";
 

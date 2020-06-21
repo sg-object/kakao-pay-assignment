@@ -2,21 +2,31 @@ package com.sg.assignment.coupon.service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import org.bson.Document;
-import org.bson.conversions.Bson;
+import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.UncategorizedMongoDbException;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.aggregation.AggregationResults;
+import org.springframework.data.mongodb.core.aggregation.GroupOperation;
+import org.springframework.data.mongodb.core.aggregation.LimitOperation;
+import org.springframework.data.mongodb.core.aggregation.MatchOperation;
+import org.springframework.data.mongodb.core.aggregation.ReplaceRootOperation;
+import org.springframework.data.mongodb.core.aggregation.SkipOperation;
+import org.springframework.data.mongodb.core.aggregation.SortOperation;
+import org.springframework.data.mongodb.core.aggregation.UnwindOperation;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
-import com.mongodb.client.AggregateIterable;
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.model.Aggregates;
-import com.mongodb.client.model.Filters;
-import com.mongodb.client.model.Projections;
-import com.mongodb.client.model.UpdateOptions;
+import org.springframework.transaction.annotation.Transactional;
+import com.mongodb.MongoCommandException;
 import com.sg.assignment.common.enums.CommonField;
 import com.sg.assignment.common.enums.CouponField;
 import com.sg.assignment.common.exception.CanceledCouponException;
@@ -24,167 +34,204 @@ import com.sg.assignment.common.exception.NotFoundOrExpiredCouponException;
 import com.sg.assignment.common.exception.NotFoundUsableCouponException;
 import com.sg.assignment.common.exception.UsedCouponException;
 import com.sg.assignment.common.enums.IssueField;
+import com.sg.assignment.common.enums.MongoCollections;
 import com.sg.assignment.common.service.MongoService;
 import com.sg.assignment.coupon.model.Coupon;
+import com.sg.assignment.coupon.model.CouponState;
+import com.sg.assignment.coupon.model.ExpiredCoupon;
 import com.sg.assignment.coupon.model.Issue;
 import com.sg.assignment.coupon.model.IssueCoupon;
 
 @Service
 public class IssueService {
 
+	private final Logger logger = LoggerFactory.getLogger(this.getClass());
+	
 	@Value("${coupon.default-expire-day}")
 	private int defaultExpireDay;
-	
+
 	@Autowired
 	private MongoService mongoService;
 
-	public String issueCoupon(String id) {
+	@Autowired
+	private MongoTemplate mongoTemplate;
+
+	private final int collectionExistsErrorCode = 48;
+
+	public IssueCoupon issueCoupon(String id) {
 		LocalDateTime issueDate = LocalDateTime.now();
-		MongoCollection<Document> issueCollection = mongoService.getIssueCollection();
 
-		AggregateIterable<Document> issuedCoupons = issueCollection
-				.aggregate(Arrays.asList(Aggregates.match(Filters.eq(CommonField._ID.getField(), id)),
-						Aggregates.unwind("$" + IssueField.COUPONS.getField()),
-						Aggregates.match(Filters.gte(IssueField.COUPONS_EXPIRE_DATE.getField(), LocalDate.now())),
-						Aggregates.group("$" + IssueField.COUPONS_COUPON.getField())));
+		// 유효 쿠폰 발급 및 collection 생성
+		Coupon coupon = getUsableCoupon(id);
+		String stateCollectionName = mongoService.createCollectionNameByIssueDate(issueDate);
+		String expireCollectionName = mongoService.createCollectionNameByExpireDate(coupon.getExpireDate());
+		createCollection(stateCollectionName);
+		createCollection(expireCollectionName);
 
-		List<String> notIn = new ArrayList<String>();
-		if(issuedCoupons != null) {
-			issuedCoupons.forEach(coupon -> {
-				notIn.add(coupon.get(CommonField._ID.getField()).toString());
-			});	
-		}
-
-		Coupon coupon = getUsableCoupon(notIn);
+		// 발급 쿠폰 정보 생성
 		IssueCoupon issueCoupon = new IssueCoupon(coupon);
 		issueCoupon.setUseYn(false);
 		issueCoupon.setExpireYn(false);
-		issueCoupon.setCollection(mongoService.createCollectionNameByIssueDate(issueDate));
+		issueCoupon.setCollection(stateCollectionName);
+		issueCoupon.setExpireCollection(expireCollectionName);
 		issueCoupon.setIssueDate(issueDate);
+		issueCoupon.setUserId(id);
 
-		issueCollection
-				.updateOne(Filters.eq(CommonField._ID.getField(), id),
-						new Document(CommonField.ADD_TO_SET.getField(),
-								new Document(IssueField.COUPONS.getField(), issueCoupon)),
-						new UpdateOptions().upsert(true));
+		return issueCoupon;
+	}
+
+	private void createCollection(String collectionName) {
+		if (!mongoTemplate.collectionExists(collectionName)) {
+			try {
+				mongoTemplate.createCollection(collectionName);
+			} catch (UncategorizedMongoDbException e) {
+				if (e.getRootCause() instanceof MongoCommandException) {
+					if (collectionExistsErrorCode != ((MongoCommandException) e.getRootCause()).getCode()) {
+						throw new RuntimeException();
+					}
+				} else {
+					throw new RuntimeException();
+				}
+			}
+		}
+	}
+
+	public void rollbackCoupon(String coupon) {
+		Query query = new Query(Criteria.where(CommonField._ID.getField()).is(coupon));
+		Update update = new Update();
+		update.set(CouponField.ISSUE_YN.getField(), false);
+		mongoTemplate.updateFirst(query, update, MongoCollections.COUPON.getCollectionName());
+		logger.info("rollback coupon : {}", coupon);
+	}
+
+	@Transactional
+	public void issueCoupon(IssueCoupon issueCoupon) {
+		// Issue Collection 쿠폰 발급
+		Query issueQuery = new Query(Criteria.where(CommonField._ID.getField()).is(issueCoupon.getUserId()));
+		Update issueUpdate = new Update();
+		issueUpdate.addToSet(IssueField.COUPONS.getField(), issueCoupon);
+		mongoTemplate.upsert(issueQuery, issueUpdate, MongoCollections.ISSUE.getCollectionName());
 
 		// 쿠폰 관리 Collection
-		mongoService.getCollection(issueCoupon.getCollection()).insertOne(createStateDocument(coupon, id, issueDate));
+		mongoTemplate.insert(new CouponState(issueCoupon), issueCoupon.getCollection());
 		// 쿠폰 만료 관리 Collection
-		mongoService.getCollection(mongoService.createCollectionNameByExpireDate(issueCoupon.getExpireDate())).insertOne(createExpireDocument(issueCoupon, id));
-		return coupon.getId();
+		mongoTemplate.insert(new ExpiredCoupon(issueCoupon), issueCoupon.getExpireCollection());
 	}
 
 	public List<IssueCoupon> getMyCouponList(String id, int page, int size) {
-		MongoCollection<Document> issueCollection = mongoService.getIssueCollection();
-		AggregateIterable<IssueCoupon> issuedCoupons = issueCollection
-				.aggregate(Arrays.asList(Aggregates.match(Filters.eq(CommonField._ID.getField(), id)),
-						Aggregates.unwind("$" + IssueField.COUPONS.getField()),
-						Aggregates.sort(new Document(IssueField.COUPONS_ISSUE_DATE.getField(), -1)),
-						Aggregates.skip((page-1) * size),
-						Aggregates.limit(size),
-						Aggregates.replaceRoot("$" + IssueField.COUPONS.getField())), IssueCoupon.class);
+		MatchOperation match = Aggregation.match(Criteria.where(CommonField._ID.getField()).is(id));
+		UnwindOperation unwind = Aggregation.unwind(IssueField.COUPONS.getField());
+		SortOperation sort = Aggregation.sort(Sort.Direction.DESC, IssueField.COUPONS_ISSUE_DATE.getField());
+		SkipOperation skip = Aggregation.skip(new Long(((page - 1) * size)));
+		LimitOperation limit = Aggregation.limit(size);
+		ReplaceRootOperation replace = Aggregation.replaceRoot(IssueField.COUPONS.getField());
+
+		Aggregation aggregation = Aggregation.newAggregation(match, unwind, sort, skip, limit, replace);
+		AggregationResults<IssueCoupon> result = mongoTemplate.aggregate(aggregation,
+				MongoCollections.ISSUE.getCollectionName(), IssueCoupon.class);
 		
-		List<IssueCoupon> result = new ArrayList<IssueCoupon>();
-		if(issuedCoupons != null) {
-			issuedCoupons.forEach(coupon -> {
-				result.add(coupon);
-			});
-		}
-		return result;
+		// 목록 조회 시 만료 날짜 검사, 만료 시 MongoDB 데이터 수정 처리 고려 중...
+		LocalDateTime now = LocalDateTime.now();
+		return result.getMappedResults().stream().map(coupon -> {
+			if(!coupon.isUseYn() && !coupon.isExpireYn()) {
+				if(now.isAfter(coupon.getExpireDate())) {
+					coupon.setExpireYn(true);
+				}
+			}
+			return coupon;
+		}).collect(Collectors.toList());
 	}
 
-	public void useCoupon(String id, String coupon) {
-		MongoCollection<Document> issueCollection = mongoService.getIssueCollection();
-
-		Document elemFilter = new Document(CouponField.COUPON.getField(), coupon).append(IssueField.EXPIRE_YN.getField(), false);
-
-		Bson filter = Filters.and(Filters.eq(CommonField._ID.getField(), id),
-				Filters.elemMatch(IssueField.COUPONS.getField(), elemFilter));
-
-		Issue issue = issueCollection.find(filter, Issue.class).limit(1)
-				.projection(Projections.elemMatch(IssueField.COUPONS.getField(), elemFilter)).first();
-		IssueCoupon issueCoupon = Optional.ofNullable(issue).orElseThrow(() -> new NotFoundOrExpiredCouponException()).getCoupons()
-				.get(0);
-
+	@Transactional
+	public boolean useCoupon(String id, String coupon) {
+		Query query = getCouponQuery(id, coupon);
+		IssueCoupon issueCoupon = getIssueCoupon(query);
 		if (issueCoupon.isUseYn()) {
 			throw new UsedCouponException();
 		} else {
 			if (LocalDateTime.now().isAfter(issueCoupon.getExpireDate())) {
-				issueCollection.updateOne(filter, new Document(CommonField.SET.getField(),
-						new Document(IssueField.UPDATE_EXPIRE_YN.getField(), true)));
-				throw new NotFoundOrExpiredCouponException();
+				updateExpireYn(query);
+				return false;
+			} else {
+				updateUseYn(query, true);
+				return true;
 			}
 		}
-
-		issueCollection.updateOne(filter,
-				new Document(CommonField.SET.getField(), new Document(IssueField.UPDATE_USE_YN.getField(), true)));
 	}
 
-	public void cancelCoupon(String id, String coupon) {
-		MongoCollection<Document> issueCollection = mongoService.getIssueCollection();
-
-		Document elemFilter = new Document(CouponField.COUPON.getField(), coupon)
-				.append(IssueField.EXPIRE_YN.getField(), false);
-
-		Bson filter = Filters.and(Filters.eq(CommonField._ID.getField(), id),
-				Filters.elemMatch(IssueField.COUPONS.getField(), elemFilter));
-
-		Issue issue = issueCollection.find(filter, Issue.class).limit(1)
-				.projection(Projections.elemMatch(IssueField.COUPONS.getField(), elemFilter)).first();
-		IssueCoupon issueCoupon = Optional.ofNullable(issue).orElseThrow(() -> new NotFoundOrExpiredCouponException()).getCoupons()
-				.get(0);
-
+	@Transactional
+	public boolean cancelCoupon(String id, String coupon) {
+		Query query = getCouponQuery(id, coupon);
+		IssueCoupon issueCoupon = getIssueCoupon(query);
 		if (issueCoupon.isUseYn()) {
 			if (LocalDateTime.now().isAfter(issueCoupon.getExpireDate())) {
-				issueCollection.updateOne(filter, new Document(CommonField.SET.getField(),
-						new Document(IssueField.UPDATE_EXPIRE_YN.getField(), true)));
-				throw new NotFoundOrExpiredCouponException();
+				updateExpireYn(query);
+				return false;
+			} else {
+				updateUseYn(query, false);
+				return true;
 			}
 		} else {
 			throw new CanceledCouponException();
 		}
-
-		issueCollection.updateOne(filter,
-				new Document(CommonField.SET.getField(), new Document(IssueField.UPDATE_USE_YN.getField(), false)));
 	}
 
-	private Document createExpireDocument(IssueCoupon coupon, String userId) {
-		Document doc = new Document();
-		doc.append(CouponField.COUPON.getField(), coupon.getCoupon());
-		doc.append(CouponField.USER_ID.getField(), userId);
-		doc.append(IssueField.COLLECTION.getField(), coupon.getCollection());
-		doc.append(CouponField.ISSUE_DATE.getField(), coupon.getIssueDate());
-		doc.append(CouponField.EXPIRE_DATE.getField(), coupon.getExpireDate());
-		return doc;
-	}
-	
-	private Document createStateDocument(Coupon coupon, String userId, LocalDateTime issueDate) {
-		Document doc = new Document();
-		//doc.append(CommonField._ID.getField(), coupon.getId());
-		doc.append(CouponField.COUPON.getField(), coupon.getId());
-		doc.append(CouponField.USER_ID.getField(), userId);
-		doc.append(CouponField.CREATE_DATE.getField(), coupon.getCreateDate());
-		doc.append(CouponField.ISSUE_DATE.getField(), issueDate);
-		doc.append(CouponField.EXPIRE_DATE.getField(), coupon.getExpireDate());
-		return doc;
+	private void updateUseYn(Query query, boolean useYn) {
+		Update update = new Update();
+		update.set(IssueField.UPDATE_USE_YN.getField(), useYn);
+		mongoTemplate.updateFirst(query, update, MongoCollections.ISSUE.getCollectionName());
 	}
 
-	private Coupon getUsableCoupon(List<String> notIn) {
-		MongoCollection<Document> couponCollection = mongoService.getCouponCollection();
+	private void updateExpireYn(Query query) {
+		Update update = new Update();
+		update.set(IssueField.UPDATE_EXPIRE_YN.getField(), true);
+		mongoTemplate.updateFirst(query, update, MongoCollections.ISSUE.getCollectionName());
+	}
+
+	private IssueCoupon getIssueCoupon(Query query) {
+		Issue issue = Optional
+				.ofNullable(mongoTemplate.findOne(query, Issue.class, MongoCollections.ISSUE.getCollectionName()))
+				.orElseThrow(() -> new NotFoundOrExpiredCouponException());
+		return issue.getCoupons().get(0);
+	}
+
+	private Query getCouponQuery(String id, String coupon) {
+		Query query = new Query();
+		Criteria elemMatch = Criteria.where(CouponField.COUPON.getField()).is(coupon)
+				.and(IssueField.EXPIRE_YN.getField()).is(false);
+		query.addCriteria(Criteria.where(CommonField._ID.getField()).is(id));
+		query.addCriteria(Criteria.where(IssueField.COUPONS.getField()).elemMatch(elemMatch));
+		query.fields().elemMatch(IssueField.COUPONS.getField(), elemMatch);
+		return query;
+	}
+
+	private Coupon getUsableCoupon(String id) {
+		MatchOperation idMatch = Aggregation.match(Criteria.where(CommonField._ID.getField()).is(id));
+		UnwindOperation unwind = Aggregation.unwind(IssueField.COUPONS.getField());
+		MatchOperation dateMatch = Aggregation
+				.match(Criteria.where(IssueField.COUPONS_EXPIRE_DATE.getField()).gte(LocalDate.now()));
+		GroupOperation group = Aggregation.group(IssueField.COUPONS_COUPON.getField());
+		Aggregation aggregation = Aggregation.newAggregation(idMatch, unwind, dateMatch, group);
+		AggregationResults<Coupon> result = mongoTemplate.aggregate(aggregation,
+				MongoCollections.ISSUE.getCollectionName(), Coupon.class);
+
+		List<String> notIn = result.getMappedResults().stream().map(Coupon::getId).collect(Collectors.toList());
+
+		Query query = new Query(Criteria.where(CouponField.ISSUE_YN.getField()).is(false))
+				.addCriteria(Criteria.where(CommonField._ID.getField()).nin(notIn));
+		Update update = new Update();
+		update.set(CouponField.ISSUE_YN.getField(), true);
 		Coupon coupon = Optional
-				.ofNullable(couponCollection
-						.find(Filters.and(Filters.eq(CouponField.ISSUE_YN.getField(), false),
-								Filters.nin(CommonField._ID.getField(), notIn)), Coupon.class).limit(1)
-						.projection(Projections.exclude(CouponField.ISSUE_YN.getField())).first())
+				.ofNullable(mongoTemplate.findAndModify(query, update, Coupon.class,
+						MongoCollections.COUPON.getCollectionName()))
 				.orElseThrow(() -> new NotFoundUsableCouponException());
 		if (coupon.getExpireDate() == null) {
 			LocalDateTime now = LocalDateTime.now();
-			coupon.setExpireDate(LocalDateTime.of(now.getYear(), now.getMonth(), now.getDayOfMonth(), now.getHour(), 0, 0, 0).plusDays(defaultExpireDay));
+			coupon.setExpireDate(
+					LocalDateTime.of(now.getYear(), now.getMonth(), now.getDayOfMonth(), now.getHour(), 0, 0, 0)
+							.plusDays(defaultExpireDay));
 		}
 
-		couponCollection.updateOne(Filters.eq(CommonField._ID.getField(), coupon.getId()),
-				new Document(CommonField.SET.getField(), new Document(CouponField.ISSUE_YN.getField(), true)));
 		return coupon;
 	}
 }

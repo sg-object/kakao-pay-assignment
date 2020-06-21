@@ -7,27 +7,29 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
-import org.bson.Document;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.Sort.Direction;
+import org.springframework.data.mongodb.core.BulkOperations;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.BulkOperations.BulkMode;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import com.mongodb.bulk.BulkWriteResult;
-import com.mongodb.client.FindIterable;
-import com.mongodb.client.model.BulkWriteOptions;
-import com.mongodb.client.model.Filters;
-import com.mongodb.client.model.UpdateOneModel;
-import com.mongodb.client.model.UpdateOptions;
 import com.sg.assignment.common.enums.CommonField;
 import com.sg.assignment.common.enums.CouponField;
 import com.sg.assignment.common.enums.MongoCollections;
 import com.sg.assignment.common.exception.VerificationException;
 import com.sg.assignment.common.service.MongoService;
+import com.sg.assignment.common.util.LocalDateTimeUtils;
 import com.sg.assignment.common.util.VerificationUtils;
 import com.sg.assignment.coupon.model.BulkResult;
 import com.sg.assignment.coupon.model.ExpiredCoupon;
@@ -53,42 +55,41 @@ public class ManagementCouponService {
 	private final String comma = ",";
 
 	@Autowired
+	private MongoTemplate mongoTemplate;
+	
+	@Autowired
 	private MongoService mongoService;
-
+	
 	public BulkResult createBulkCoupon(int count, Date expireDate) {
-		LocalDateTime createDate = LocalDateTime.now();
+		LocalDateTime createDate = LocalDateTimeUtils.plusNineHours();
 		LocalDateTime initDate = null;
 		if (expireDate != null) {
-			initDate = LocalDateTime.ofInstant(expireDate.toInstant(), ZoneId.systemDefault());
+			initDate = LocalDateTimeUtils.ofInstant(expireDate.toInstant());
 			if (createDate.isAfter(initDate)) {
 				throw new VerificationException();
 			}
 		}
+		
+		BulkOperations bulk = mongoTemplate.bulkOps(BulkMode.UNORDERED, MongoCollections.COUPON.getCollectionName());
 
-		List<UpdateOneModel<Document>> docs = new ArrayList<UpdateOneModel<Document>>();
-		UpdateOptions updateOptions = new UpdateOptions().upsert(true);
 		for (int i = 0; i < count; i++) {
-			Document document = createCouponDocument(createDate, true);
+			String coupon = createCoupon();
+			Query query = new Query(Criteria.where(CommonField._ID.getField()).is(coupon));
+			Update update = upsertCoupon(createDate);
 			if (initDate != null) {
-				document.append(CouponField.EXPIRE_DATE.getField(), initDate);
+				update.setOnInsert(CouponField.EXPIRE_DATE.getField(), initDate);
 			}
-			docs.add(new UpdateOneModel<Document>(
-					Filters.eq(CommonField._ID.getField(), document.get(CommonField._ID.getField())),
-					new Document(CommonField.SET_ON_INSERT.getField(), document), updateOptions));
+			bulk.upsert(query, update);
 		}
-		BulkWriteResult bulkWriteResult = mongoService.getCollection(MongoCollections.COUPON.getCollectionName())
-				.bulkWrite(docs, new BulkWriteOptions().ordered(false));
-		BulkResult bulkResult = new BulkResult();
-		bulkResult.setTotalCount(count);
-		bulkResult.setCreateCount(count - bulkWriteResult.getMatchedCount());
-		bulkResult.setDuplicateCount(bulkWriteResult.getMatchedCount());
-		return bulkResult;
+		
+		return getBulkResult(bulk.execute(), count);
 	}
 
 	public BulkResult createBulkCouponByCSV(MultipartFile csv) {
-		LocalDateTime createDate = LocalDateTime.now();
-		List<UpdateOneModel<Document>> docs = new ArrayList<UpdateOneModel<Document>>();
-		UpdateOptions updateOptions = new UpdateOptions().upsert(true);
+		LocalDateTime createDate = LocalDateTimeUtils.plusNineHours();
+		BulkOperations bulk = mongoTemplate.bulkOps(BulkMode.UNORDERED, MongoCollections.COUPON.getCollectionName());
+		
+		int count = 0;
 		try {
 			File file = getCSVFile(csv);
 			BufferedReader br = Files.newBufferedReader(Paths.get(file.getAbsolutePath()));
@@ -97,10 +98,10 @@ public class ManagementCouponService {
 				String[] data = line.split(comma);
 				String coupon = data[0];
 				if (VerificationUtils.isValidCoupon(coupon)) {
-					Document document = createCouponDocument(createDate, false);
-					document.append(CommonField._ID.getField(), coupon);
-					docs.add(new UpdateOneModel<Document>(Filters.eq(CommonField._ID.getField(), coupon),
-							new Document(CommonField.SET_ON_INSERT.getField(), document), updateOptions));
+					Query query = new Query(Criteria.where(CommonField._ID.getField()).is(coupon));
+					Update update = upsertCoupon(createDate);
+					bulk.upsert(query, update);
+					++count;
 				}
 			}
 			file.delete();
@@ -108,33 +109,27 @@ public class ManagementCouponService {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		BulkWriteResult bulkWriteResult = mongoService.getCollection(MongoCollections.COUPON.getCollectionName())
-				.bulkWrite(docs, new BulkWriteOptions().ordered(false));
-		BulkResult bulkResult = new BulkResult();
-		bulkResult.setTotalCount(docs.size());
-		bulkResult.setCreateCount(docs.size() - bulkWriteResult.getMatchedCount());
-		bulkResult.setDuplicateCount(bulkWriteResult.getMatchedCount());
-		return bulkResult;
+		
+		return getBulkResult(bulk.execute(), count);
 	}
 
-	public List<ExpiredCoupon> getExpiredCouponAtToday(int page, int size) {
+	public List<ExpiredCoupon> getExpiredCouponAtDate(int page, int size, LocalDateTime date) {
 		if (page < 1 || size < 1) {
 			throw new VerificationException();
 		}
-		LocalDateTime now = LocalDateTime.now();
-		FindIterable<ExpiredCoupon> coupons = mongoService
-				.getCollection(mongoService.createCollectionNameByExpireDate(now))
-				.find(Filters.lte(CouponField.EXPIRE_DATE.getField(), now), ExpiredCoupon.class)
-				.sort(new Document(CouponField.EXPIRE_DATE.getField(), -1)).skip((page - 1) * size).limit(size);
-		List<ExpiredCoupon> result = new ArrayList<ExpiredCoupon>();
-		if (coupons != null) {
-			coupons.forEach(coupon -> {
-				result.add(coupon);
-			});
-		}
-		return result;
+		Query query = new Query(Criteria.where(CouponField.EXPIRE_DATE.getField()).lte(date));
+		query.with(PageRequest.of(page - 1, size, Sort.by(Direction.DESC, CouponField.EXPIRE_DATE.getField())));
+		return mongoTemplate.find(query, ExpiredCoupon.class, mongoService.createCollectionNameByExpireDate(date));
 	}
 
+	private BulkResult getBulkResult(BulkWriteResult bulkWriteResult, int totalCount) {
+		BulkResult bulkResult = new BulkResult();
+		bulkResult.setTotalCount(totalCount);
+		bulkResult.setCreateCount(totalCount - bulkWriteResult.getMatchedCount());
+		bulkResult.setDuplicateCount(bulkWriteResult.getMatchedCount());
+		return bulkResult;
+	}
+	
 	private File getCSVFile(MultipartFile csv) throws IOException {
 		File dir = new File(csvPath);
 		if (!dir.exists() || !dir.isDirectory()) {
@@ -148,14 +143,11 @@ public class ManagementCouponService {
 		return file;
 	}
 
-	private Document createCouponDocument(LocalDateTime createDate, boolean initCoupon) {
-		Document doc = new Document();
-		if (initCoupon) {
-			doc.append(CommonField._ID.getField(), createCoupon());
-		}
-		doc.append(CouponField.CREATE_DATE.getField(), createDate);
-		doc.append(CouponField.ISSUE_YN.getField(), false);
-		return doc;
+	private Update upsertCoupon(LocalDateTime createDate) {
+		Update update = new Update();
+		update.setOnInsert(CouponField.CREATE_DATE.getField(), createDate);
+		update.setOnInsert(CouponField.ISSUE_YN.getField(), false);
+		return update;
 	}
 
 	private String createCoupon() {

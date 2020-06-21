@@ -14,7 +14,7 @@ import com.sg.assignment.common.enums.MongoCollections;
 @Service
 public class MongoService {
 
-	@Value("${mongodb.database.kakao}")
+	@Value("${spring.data.mongodb.database}")
 	private String database;
 
 	private final DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("yyyy_MM_dd");

@@ -1,5 +1,6 @@
 package com.sg.assignment.coupon.controller;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +50,6 @@ public class ManagementCouponController {
 	})
 	@GetMapping("/expiration")
 	public List<ExpiredCoupon> getExpiredCouponAtToday(int page, int size) {
-		return managementCouponService.getExpiredCouponAtToday(page, size);
+		return managementCouponService.getExpiredCouponAtDate(page, size, LocalDateTime.now());
 	}
 }

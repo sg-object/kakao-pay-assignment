@@ -1,44 +1,52 @@
 package com.sg.assignment.config;
 
-import java.util.Arrays;
-import org.bson.codecs.configuration.CodecRegistries;
-import org.bson.codecs.configuration.CodecRegistry;
-import org.bson.codecs.pojo.PojoCodecProvider;
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.mongodb.MongoDatabaseFactory;
+import org.springframework.data.mongodb.MongoTransactionManager;
+import org.springframework.data.mongodb.config.AbstractMongoClientConfiguration;
 import com.mongodb.MongoClientSettings;
-import com.mongodb.MongoCredential;
 import com.mongodb.ServerAddress;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 
 @Configuration
-public class MongoDBConfig {
+public class MongoDBConfig extends AbstractMongoClientConfiguration {
 
-	@Value("${mongodb.host}")
-	private String host;
+	@Value("${spring.data.mongodb.cluster}")
+	private List<String> cluster;
 
-	@Value("${mongodb.port}")
-	private int port;
-
-	@Value("${mongodb.userName}")
-	private String userName;
-
-	@Value("${mongodb.database.auth}")
-	private String authdb;
-
-	@Value("${mongodb.password}")
-	private String password;
+	@Value("${spring.data.mongodb.database}")
+	private String database;
 
 	@Bean
+	public MongoTransactionManager mongoTransactionManager(MongoDatabaseFactory dbFactory) {
+		return new MongoTransactionManager(dbFactory);
+	}
+
+	@Override
+	protected String getDatabaseName() {
+		// TODO Auto-generated method stub
+		return database;
+	}
+
+	@Bean
+	@Override
 	public MongoClient mongoClient() {
-		MongoCredential credential = MongoCredential.createCredential(userName, authdb, password.toCharArray());
-		CodecRegistry pojoCodecRegistry = CodecRegistries.fromRegistries(MongoClientSettings.getDefaultCodecRegistry(),
-				CodecRegistries.fromProviders(PojoCodecProvider.builder().automatic(true).build()));
-		MongoClientSettings settings = MongoClientSettings.builder().credential(credential)
-				.applyToClusterSettings(builder -> builder.hosts(Arrays.asList(new ServerAddress(host, port))))
-				.codecRegistry(pojoCodecRegistry).build();
-		return MongoClients.create(settings);
+		// TODO Auto-generated method stub
+		return MongoClients.create(mongoClientSettings());
+	}
+
+	@Bean
+	public MongoClientSettings mongoClientSettings() {
+		List<ServerAddress> hosts = new ArrayList<>();
+		cluster.forEach(url -> {
+			String[] info = url.split(":");
+			hosts.add(new ServerAddress(info[0], Integer.parseInt(info[1])));
+		});
+		return MongoClientSettings.builder().applyToClusterSettings(builder -> builder.hosts(hosts)).build();
 	}
 }
